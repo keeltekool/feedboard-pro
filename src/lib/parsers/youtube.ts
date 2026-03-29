@@ -82,7 +82,7 @@ export async function fetchYouTube(
     }
 
     const xml = await response.text();
-    const channelName = extractTag(xml, "title") || "YouTube Channel";
+    const channelName = decodeHtmlEntities(extractTag(xml, "title") || "YouTube Channel");
     const articles = parseYouTubeAtom(xml, channelName);
     return { articles, rssUrl, channelName };
   } finally {
