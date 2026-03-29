@@ -31,6 +31,18 @@ export async function fetchGoogleNews(
   }
 }
 
+function cleanDescription(html: string): string | undefined {
+  // Strip all HTML tags, decode entities, collapse whitespace
+  const text = decodeHtmlEntities(html)
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  // Google News descriptions are often just the source name repeated — skip those
+  if (text.length < 10) return undefined;
+  return text.slice(0, 200);
+}
+
 function parseGoogleNewsRSS(xml: string): PreviewArticle[] {
   const items: PreviewArticle[] = [];
   const itemRegex = /<item>([\s\S]*?)<\/item>/g;
@@ -72,7 +84,7 @@ function parseGoogleNewsRSS(xml: string): PreviewArticle[] {
         url: link,
         publishedAt: pubDate || new Date().toISOString(),
         thumbnail: thumbnail || undefined,
-        description: description ? decodeHtmlEntities(description.replace(/<[^>]*>/g, "")).slice(0, 200) : undefined,
+        description: description ? cleanDescription(description) : undefined,
       });
     }
 
