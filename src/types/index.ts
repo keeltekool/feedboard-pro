@@ -1,4 +1,4 @@
-export type FeedType = "google-news" | "youtube" | "reddit";
+export type FeedType = "google-news" | "youtube" | "reddit" | "rss";
 
 export interface Feed {
   id: number;

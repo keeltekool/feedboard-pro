@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { fetchGoogleNews } from "@/lib/parsers/google-news";
 import { fetchYouTube, resolveChannelId } from "@/lib/parsers/youtube";
 import { fetchReddit } from "@/lib/parsers/reddit";
+import { fetchRss } from "@/lib/parsers/rss";
 import type { FeedType } from "@/types";
 
 export async function POST(request: Request) {
@@ -47,6 +48,16 @@ export async function POST(request: Request) {
           articles: result.articles,
           rssUrl: result.rssUrl,
           articleCount: result.articles.length,
+        });
+      }
+
+      case "rss": {
+        const result = await fetchRss(query);
+        return NextResponse.json({
+          articles: result.articles,
+          rssUrl: result.rssUrl,
+          articleCount: result.articles.length,
+          feedTitle: result.feedTitle,
         });
       }
 

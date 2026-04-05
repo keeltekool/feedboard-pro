@@ -14,6 +14,7 @@ const SOURCE_LABELS: Record<string, string> = {
   "google-news": "Google News",
   youtube: "YouTube",
   reddit: "Reddit",
+  rss: "RSS",
 };
 
 export function FeedDetail({ feed, onDelete, onUpdate }: FeedDetailProps) {

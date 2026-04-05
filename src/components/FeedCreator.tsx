@@ -8,6 +8,7 @@ const SOURCE_TABS: { type: FeedType; label: string }[] = [
   { type: "google-news", label: "News" },
   { type: "youtube", label: "YouTube" },
   { type: "reddit", label: "Reddit" },
+  { type: "rss", label: "RSS" },
 ];
 
 const LANGUAGES = [
@@ -42,6 +43,10 @@ export function FeedCreator({ onFeedSaved }: FeedCreatorProps) {
 
   const handlePreview = async () => {
     if (!query.trim()) return;
+    if (sourceType === "rss" && !/^https?:\/\/.+/i.test(query.trim())) {
+      setError("Please enter a valid URL starting with http:// or https://");
+      return;
+    }
     setIsLoading(true);
     setError("");
     setHasPreview(false);
@@ -66,13 +71,17 @@ export function FeedCreator({ onFeedSaved }: FeedCreatorProps) {
       setHasPreview(true);
 
       if (!feedName) {
-        const prefix =
-          sourceType === "google-news"
-            ? "Google News"
-            : sourceType === "youtube"
-              ? data.channelName || "YouTube"
-              : "Reddit";
-        setFeedName(`${prefix} - ${query.trim()}`);
+        if (sourceType === "rss") {
+          setFeedName(data.feedTitle || query.trim());
+        } else {
+          const prefix =
+            sourceType === "google-news"
+              ? "Google News"
+              : sourceType === "youtube"
+                ? data.channelName || "YouTube"
+                : "Reddit";
+          setFeedName(`${prefix} - ${query.trim()}`);
+        }
       }
     } catch {
       setError("Failed to fetch preview. Please try again.");
@@ -126,6 +135,8 @@ export function FeedCreator({ onFeedSaved }: FeedCreatorProps) {
         return "Enter channel name or URL, e.g. @mkbhd";
       case "reddit":
         return 'Enter subreddit or keywords, e.g. "r/technology"';
+      case "rss":
+        return "Enter RSS feed URL, e.g. https://example.com/feed.xml";
     }
   };
 

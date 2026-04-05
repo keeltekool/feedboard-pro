@@ -29,6 +29,14 @@ const SOURCE_CONFIG = {
       </svg>
     ),
   },
+  rss: {
+    label: "RSS",
+    icon: (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 5c7.18 0 13 5.82 13 13M6 11a7 7 0 017 7M7 19a1 1 0 11-2 0 1 1 0 012 0z" />
+      </svg>
+    ),
+  },
 } as const;
 
 interface SidebarProps {
@@ -43,6 +51,7 @@ export function Sidebar({ feeds, activeFeedId, onSelectFeed, onNewFeed }: Sideba
     "google-news": true,
     youtube: true,
     reddit: true,
+    rss: true,
   });
 
   const grouped = feeds.reduce(
