@@ -5,11 +5,13 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Sidebar } from "@/components/Sidebar";
 import { FeedCreator } from "@/components/FeedCreator";
 import { FeedDetail } from "@/components/FeedDetail";
-import type { Feed } from "@/types";
+import { GroupOverview } from "@/components/GroupOverview";
+import type { Feed, FeedType } from "@/types";
 
 export default function Home() {
   const [feeds, setFeeds] = useState<Feed[]>([]);
   const [activeFeedId, setActiveFeedId] = useState<number | null>(null);
+  const [activeGroupType, setActiveGroupType] = useState<FeedType | null>(null);
   const [showCreator, setShowCreator] = useState(true);
 
   const fetchFeeds = useCallback(async () => {
@@ -32,12 +34,20 @@ export default function Home() {
 
   const handleSelectFeed = (id: number) => {
     setActiveFeedId(id);
+    setActiveGroupType(null);
+    setShowCreator(false);
+  };
+
+  const handleSelectGroup = (type: FeedType) => {
+    setActiveGroupType(type);
+    setActiveFeedId(null);
     setShowCreator(false);
   };
 
   const handleNewFeed = () => {
     setShowCreator(true);
     setActiveFeedId(null);
+    setActiveGroupType(null);
   };
 
   const handleFeedSaved = () => {
@@ -48,6 +58,7 @@ export default function Home() {
   const handleFeedDeleted = () => {
     setActiveFeedId(null);
     setShowCreator(true);
+    setActiveGroupType(null);
     fetchFeeds();
   };
 
@@ -73,13 +84,17 @@ export default function Home() {
         <Sidebar
           feeds={feeds}
           activeFeedId={activeFeedId}
+          activeGroupType={activeGroupType}
           onSelectFeed={handleSelectFeed}
+          onSelectGroup={handleSelectGroup}
           onNewFeed={handleNewFeed}
         />
 
         {/* Main area */}
         {showCreator ? (
           <FeedCreator onFeedSaved={handleFeedSaved} />
+        ) : activeGroupType ? (
+          <GroupOverview type={activeGroupType} />
         ) : activeFeed ? (
           <FeedDetail
             feed={activeFeed}

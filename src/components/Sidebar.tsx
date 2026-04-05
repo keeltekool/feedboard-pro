@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import type { Feed } from "@/types";
+import { useState, useEffect, useCallback, useRef } from "react";
+import type { Feed, FeedType } from "@/types";
 
 const SOURCE_CONFIG = {
   "google-news": {
@@ -42,17 +42,66 @@ const SOURCE_CONFIG = {
 interface SidebarProps {
   feeds: Feed[];
   activeFeedId: number | null;
+  activeGroupType: FeedType | null;
   onSelectFeed: (id: number) => void;
+  onSelectGroup: (type: FeedType) => void;
   onNewFeed: () => void;
 }
 
-export function Sidebar({ feeds, activeFeedId, onSelectFeed, onNewFeed }: SidebarProps) {
+const SIDEBAR_WIDTH_KEY = "feedboard-sidebar-width";
+const DEFAULT_WIDTH = 260;
+const MIN_WIDTH = 200;
+const MAX_WIDTH = 500;
+
+export function Sidebar({ feeds, activeFeedId, activeGroupType, onSelectFeed, onSelectGroup, onNewFeed }: SidebarProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     "google-news": true,
     youtube: true,
     reddit: true,
     rss: true,
   });
+
+  const [width, setWidth] = useState(DEFAULT_WIDTH);
+  const isDragging = useRef(false);
+  const sidebarRef = useRef<HTMLElement>(null);
+
+  // Load saved width from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem(SIDEBAR_WIDTH_KEY);
+    if (saved) {
+      const parsed = parseInt(saved, 10);
+      if (parsed >= MIN_WIDTH && parsed <= MAX_WIDTH) setWidth(parsed);
+    }
+  }, []);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDragging.current = true;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging.current) return;
+      const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, e.clientX));
+      setWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      isDragging.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      // Save on drag end
+      setWidth((w) => {
+        localStorage.setItem(SIDEBAR_WIDTH_KEY, String(w));
+        return w;
+      });
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  }, []);
 
   const grouped = feeds.reduce(
     (acc, feed) => {
@@ -68,8 +117,18 @@ export function Sidebar({ feeds, activeFeedId, onSelectFeed, onNewFeed }: Sideba
     setExpanded((prev) => ({ ...prev, [type]: !prev[type] }));
   };
 
+  const handleGroupClick = (type: FeedType) => {
+    // Expand the section and show overview
+    setExpanded((prev) => ({ ...prev, [type]: true }));
+    onSelectGroup(type);
+  };
+
   return (
-    <aside className="w-[260px] shrink-0 border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex flex-col h-full overflow-hidden">
+    <aside
+      ref={sidebarRef}
+      className="shrink-0 border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex flex-col h-full overflow-hidden relative"
+      style={{ width }}
+    >
       <div className="p-4">
         <button
           onClick={onNewFeed}
@@ -86,29 +145,47 @@ export function Sidebar({ feeds, activeFeedId, onSelectFeed, onNewFeed }: Sideba
         {(Object.keys(SOURCE_CONFIG) as Array<keyof typeof SOURCE_CONFIG>).map((type) => {
           const config = SOURCE_CONFIG[type];
           const typeFeeds = grouped[type] || [];
+          const isGroupActive = activeGroupType === type && activeFeedId === null;
 
           return (
             <div key={type} className="mb-1">
-              <button
-                onClick={() => toggleSection(type)}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              >
-                <span className="text-slate-500 dark:text-slate-400">{config.icon}</span>
-                <span className="flex-1 text-left">{config.label}</span>
-                {typeFeeds.length > 0 && (
-                  <span className="text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded-full">
-                    {typeFeeds.length}
-                  </span>
-                )}
-                <svg
-                  className={`w-3.5 h-3.5 text-slate-400 transition-transform ${expanded[type] ? "rotate-0" : "-rotate-90"}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
+              <div className="flex items-center">
+                {/* Group label — click to show overview */}
+                <button
+                  onClick={() => handleGroupClick(type)}
+                  className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-l-lg text-sm font-medium transition-colors ${
+                    isGroupActive
+                      ? "bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400"
+                      : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  }`}
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
+                  <span className={isGroupActive ? "text-cyan-600 dark:text-cyan-400" : "text-slate-500 dark:text-slate-400"}>{config.icon}</span>
+                  <span className="flex-1 text-left">{config.label}</span>
+                  {typeFeeds.length > 0 && (
+                    <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                      isGroupActive
+                        ? "bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-400"
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
+                    }`}>
+                      {typeFeeds.length}
+                    </span>
+                  )}
+                </button>
+                {/* Chevron — click to expand/collapse */}
+                <button
+                  onClick={() => toggleSection(type)}
+                  className="px-2 py-2 rounded-r-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <svg
+                    className={`w-3.5 h-3.5 transition-transform ${expanded[type] ? "rotate-0" : "-rotate-90"}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              </div>
 
               {expanded[type] && typeFeeds.length > 0 && (
                 <div className="ml-2 mt-0.5 space-y-0.5">
@@ -137,6 +214,12 @@ export function Sidebar({ feeds, activeFeedId, onSelectFeed, onNewFeed }: Sideba
           </div>
         )}
       </nav>
+
+      {/* Drag handle */}
+      <div
+        onMouseDown={handleMouseDown}
+        className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-cyan-400/50 active:bg-cyan-500/50 transition-colors"
+      />
     </aside>
   );
 }
