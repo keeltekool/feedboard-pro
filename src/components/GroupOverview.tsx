@@ -59,7 +59,7 @@ export function GroupOverview({ type }: GroupOverviewProps) {
 
         <div className="flex items-center gap-4 text-xs text-slate-400 dark:text-slate-500">
           <span>{feedCount} feeds</span>
-          <span>Latest 30 articles by date</span>
+          <span>Latest 50 articles by date</span>
         </div>
 
         <div className="mt-3">

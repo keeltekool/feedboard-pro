@@ -59,7 +59,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // Sort by publishedAt descending, take top 30
+    // Sort by publishedAt descending, take top 50
     allArticles.sort((a, b) => {
       const dateA = new Date(a.publishedAt).getTime();
       const dateB = new Date(b.publishedAt).getTime();
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({
-      articles: allArticles.slice(0, 30),
+      articles: allArticles.slice(0, 50),
       feedCount: feedList.length,
       type,
     });
