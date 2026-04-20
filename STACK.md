@@ -2,7 +2,7 @@
 
 > **Purpose:** RSS feed design studio replacing rss.app ($8-83/mo). Create Google News / YouTube / Reddit feeds from keywords/channels, preview articles, save and organize feeds.
 >
-> Last updated: 2026-03-29
+> Last updated: 2026-04-20
 
 ---
 
@@ -44,6 +44,8 @@
 - **No auth** — personal tool, no user accounts needed.
 - **Client-side theme** — class-based dark mode via `localStorage` key `feedboard-pro-theme`.
 - **YouTube channel resolution** — scrapes YouTube page HTML to resolve `@handle` → `UC...` channel ID.
+- **Feed categories** — `feed_categories` table groups feeds by topic within source types. YouTube has "AI & Tech" and "DJ Techniques". Sidebar renders 3-level nesting (type → category → feeds) when categories exist for a type.
+- **Public embed** — `/embed/[type]/[slug]` route renders a category's merged feed iframe-safe. Separate layout (no app chrome). `is_public` toggle per category. Optional `share_token` for unlisted access. Auto-refreshes every 5 min via client-side interval.
 
 ---
 
@@ -56,6 +58,8 @@
 | Google News descriptions contain raw HTML | Use `cleanDescription()` — strip tags, decode entities including `&nbsp;` |
 | YouTube EU consent redirect | EU-based servers get consent page redirect; works with proper User-Agent headers |
 | Next.js 16 route params | `params` is a `Promise` — must `await ctx.params` in route handlers |
+| Next.js 16 page props | Page components use `{ params: Promise<...>, searchParams: Promise<...> }`, NOT `RouteContext` (that's for API routes only) |
+| Embed layout isolation | `/embed` has its own `layout.tsx` — must import globals.css and Inter font independently from main layout |
 
 ---
 
