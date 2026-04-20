@@ -32,12 +32,15 @@ export async function PUT(
   try {
     const { id } = await ctx.params;
     const body = await request.json();
-    const { name } = body as { name?: string };
+    const { name, isPublic } = body as { name?: string; isPublic?: boolean };
 
     const updates: Record<string, unknown> = {};
     if (name) {
       updates.name = name;
       updates.slug = await uniqueSlug(generateSlug(name), Number(id));
+    }
+    if (typeof isPublic === "boolean") {
+      updates.isPublic = isPublic;
     }
 
     if (Object.keys(updates).length === 0) {

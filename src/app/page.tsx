@@ -123,6 +123,8 @@ export default function Home() {
             type={activeGroupType}
             categoryId={activeCategory?.id}
             categoryName={activeCategory?.name}
+            category={activeCategory ? categories.find(c => c.id === activeCategory.id) || null : null}
+            onCategoryUpdate={fetchFeeds}
           />
         ) : activeFeed ? (
           <FeedDetail
