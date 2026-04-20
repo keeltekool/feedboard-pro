@@ -6,21 +6,32 @@ import { Sidebar } from "@/components/Sidebar";
 import { FeedCreator } from "@/components/FeedCreator";
 import { FeedDetail } from "@/components/FeedDetail";
 import { GroupOverview } from "@/components/GroupOverview";
-import type { Feed, FeedType } from "@/types";
+import type { Feed, FeedType, FeedCategory } from "@/types";
+
+interface ActiveCategory {
+  id: number;
+  slug: string;
+  name: string;
+}
 
 export default function Home() {
   const [feeds, setFeeds] = useState<Feed[]>([]);
+  const [categories, setCategories] = useState<FeedCategory[]>([]);
   const [activeFeedId, setActiveFeedId] = useState<number | null>(null);
   const [activeGroupType, setActiveGroupType] = useState<FeedType | null>(null);
+  const [activeCategory, setActiveCategory] = useState<ActiveCategory | null>(null);
   const [showCreator, setShowCreator] = useState(true);
 
   const fetchFeeds = useCallback(async () => {
     try {
-      const res = await fetch("/api/feeds");
-      const data = await res.json();
-      if (data.feeds) {
-        setFeeds(data.feeds);
-      }
+      const [feedsRes, catsRes] = await Promise.all([
+        fetch("/api/feeds"),
+        fetch("/api/categories"),
+      ]);
+      const feedsData = await feedsRes.json();
+      const catsData = await catsRes.json();
+      if (feedsData.feeds) setFeeds(feedsData.feeds);
+      if (catsData.categories) setCategories(catsData.categories);
     } catch {
       // Silently fail
     }
@@ -35,10 +46,19 @@ export default function Home() {
   const handleSelectFeed = (id: number) => {
     setActiveFeedId(id);
     setActiveGroupType(null);
+    setActiveCategory(null);
     setShowCreator(false);
   };
 
   const handleSelectGroup = (type: FeedType) => {
+    setActiveGroupType(type);
+    setActiveFeedId(null);
+    setActiveCategory(null);
+    setShowCreator(false);
+  };
+
+  const handleSelectCategory = (category: ActiveCategory, type: FeedType) => {
+    setActiveCategory(category);
     setActiveGroupType(type);
     setActiveFeedId(null);
     setShowCreator(false);
@@ -48,6 +68,7 @@ export default function Home() {
     setShowCreator(true);
     setActiveFeedId(null);
     setActiveGroupType(null);
+    setActiveCategory(null);
   };
 
   const handleFeedSaved = () => {
@@ -59,6 +80,7 @@ export default function Home() {
     setActiveFeedId(null);
     setShowCreator(true);
     setActiveGroupType(null);
+    setActiveCategory(null);
     fetchFeeds();
   };
 
@@ -83,21 +105,29 @@ export default function Home() {
       <div className="flex flex-1 overflow-hidden">
         <Sidebar
           feeds={feeds}
+          categories={categories}
           activeFeedId={activeFeedId}
           activeGroupType={activeGroupType}
+          activeCategory={activeCategory}
           onSelectFeed={handleSelectFeed}
           onSelectGroup={handleSelectGroup}
+          onSelectCategory={handleSelectCategory}
           onNewFeed={handleNewFeed}
         />
 
         {/* Main area */}
         {showCreator ? (
-          <FeedCreator onFeedSaved={handleFeedSaved} />
+          <FeedCreator onFeedSaved={handleFeedSaved} categories={categories} />
         ) : activeGroupType ? (
-          <GroupOverview type={activeGroupType} />
+          <GroupOverview
+            type={activeGroupType}
+            categoryId={activeCategory?.id}
+            categoryName={activeCategory?.name}
+          />
         ) : activeFeed ? (
           <FeedDetail
             feed={activeFeed}
+            categories={categories}
             onDelete={handleFeedDeleted}
             onUpdate={fetchFeeds}
           />

@@ -2,10 +2,11 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { ArticleCard } from "./ArticleCard";
-import type { Feed, PreviewArticle } from "@/types";
+import type { Feed, FeedCategory, PreviewArticle } from "@/types";
 
 interface FeedDetailProps {
   feed: Feed;
+  categories: FeedCategory[];
   onDelete: () => void;
   onUpdate: () => void;
 }
@@ -17,13 +18,14 @@ const SOURCE_LABELS: Record<string, string> = {
   rss: "RSS",
 };
 
-export function FeedDetail({ feed, onDelete, onUpdate }: FeedDetailProps) {
+export function FeedDetail({ feed, categories, onDelete, onUpdate }: FeedDetailProps) {
   const [articles, setArticles] = useState<PreviewArticle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(feed.name);
   const [copied, setCopied] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
 
   const fetchPreview = useCallback(async () => {
     setIsLoading(true);
@@ -93,6 +95,61 @@ export function FeedDetail({ feed, onDelete, onUpdate }: FeedDetailProps) {
           <span className="text-xs font-medium bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-400 px-2 py-1 rounded-full">
             {SOURCE_LABELS[feed.type] || feed.type}
           </span>
+
+          {/* Category badge */}
+          {(() => {
+            const typeCats = categories.filter((c) => c.type === feed.type);
+            if (typeCats.length === 0) return null;
+
+            const currentCat = feed.category;
+            const handleCategoryChange = async (catId: number | null) => {
+              setShowCategoryDropdown(false);
+              await fetch(`/api/feeds/${feed.id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ categoryId: catId }),
+              });
+              onUpdate();
+            };
+
+            return (
+              <div className="relative">
+                <button
+                  onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                  className={`text-xs font-medium px-2 py-1 rounded-full transition-colors ${
+                    currentCat
+                      ? "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                      : "bg-slate-50 dark:bg-slate-800/50 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 italic"
+                  }`}
+                >
+                  {currentCat?.name || "Uncategorized"} ▾
+                </button>
+                {showCategoryDropdown && (
+                  <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-10 py-1">
+                    <button
+                      onClick={() => handleCategoryChange(null)}
+                      className={`w-full text-left px-3 py-1.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 ${
+                        !feed.categoryId ? "text-cyan-600 dark:text-cyan-400 font-medium" : "text-slate-700 dark:text-slate-300"
+                      }`}
+                    >
+                      None
+                    </button>
+                    {typeCats.map((cat) => (
+                      <button
+                        key={cat.id}
+                        onClick={() => handleCategoryChange(cat.id)}
+                        className={`w-full text-left px-3 py-1.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 ${
+                          feed.categoryId === cat.id ? "text-cyan-600 dark:text-cyan-400 font-medium" : "text-slate-700 dark:text-slate-300"
+                        }`}
+                      >
+                        {cat.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {isEditing ? (
             <div className="flex items-center gap-2 flex-1">

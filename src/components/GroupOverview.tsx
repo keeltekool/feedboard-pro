@@ -13,9 +13,11 @@ const SOURCE_LABELS: Record<string, string> = {
 
 interface GroupOverviewProps {
   type: FeedType;
+  categoryId?: number;
+  categoryName?: string;
 }
 
-export function GroupOverview({ type }: GroupOverviewProps) {
+export function GroupOverview({ type, categoryId, categoryName }: GroupOverviewProps) {
   const [articles, setArticles] = useState<PreviewArticle[]>([]);
   const [feedCount, setFeedCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -23,10 +25,13 @@ export function GroupOverview({ type }: GroupOverviewProps) {
   const fetchGroup = useCallback(async () => {
     setIsLoading(true);
     try {
+      const payload: Record<string, unknown> = { type };
+      if (categoryId !== undefined) payload.categoryId = categoryId;
+
       const res = await fetch("/api/feeds/preview-group", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (data.articles) {
@@ -38,7 +43,7 @@ export function GroupOverview({ type }: GroupOverviewProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [type]);
+  }, [type, categoryId]);
 
   useEffect(() => {
     fetchGroup();
@@ -52,8 +57,13 @@ export function GroupOverview({ type }: GroupOverviewProps) {
           <span className="text-xs font-medium bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-400 px-2 py-1 rounded-full">
             {SOURCE_LABELS[type] || type}
           </span>
+          {categoryName && (
+            <span className="text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-1 rounded-full">
+              {categoryName}
+            </span>
+          )}
           <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100 flex-1">
-            {SOURCE_LABELS[type] || type}
+            {categoryName || SOURCE_LABELS[type] || type}
           </h2>
         </div>
 

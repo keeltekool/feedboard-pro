@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ArticleCard } from "./ArticleCard";
-import type { FeedType, PreviewArticle } from "@/types";
+import type { FeedType, FeedCategory, PreviewArticle } from "@/types";
 
 const SOURCE_TABS: { type: FeedType; label: string }[] = [
   { type: "google-news", label: "News" },
@@ -26,9 +26,10 @@ const LANGUAGES = [
 
 interface FeedCreatorProps {
   onFeedSaved: () => void;
+  categories: FeedCategory[];
 }
 
-export function FeedCreator({ onFeedSaved }: FeedCreatorProps) {
+export function FeedCreator({ onFeedSaved, categories }: FeedCreatorProps) {
   const [sourceType, setSourceType] = useState<FeedType>("google-news");
   const [query, setQuery] = useState("");
   const [language, setLanguage] = useState("en");
@@ -40,6 +41,9 @@ export function FeedCreator({ onFeedSaved }: FeedCreatorProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
   const [hasPreview, setHasPreview] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [showNewCategory, setShowNewCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
 
   const handlePreview = async () => {
     if (!query.trim()) return;
@@ -95,6 +99,22 @@ export function FeedCreator({ onFeedSaved }: FeedCreatorProps) {
     setIsSaving(true);
 
     try {
+      let categoryId = selectedCategoryId;
+
+      if (showNewCategory && newCategoryName.trim()) {
+        const catRes = await fetch("/api/categories", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: newCategoryName.trim(), type: sourceType }),
+        });
+        const catData = await catRes.json();
+        if (catData.error) {
+          setError(catData.error);
+          return;
+        }
+        categoryId = catData.category.id;
+      }
+
       const res = await fetch("/api/feeds", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -105,6 +125,7 @@ export function FeedCreator({ onFeedSaved }: FeedCreatorProps) {
           language,
           rssUrl: previewRssUrl,
           articleCount,
+          categoryId,
         }),
       });
 
@@ -119,6 +140,9 @@ export function FeedCreator({ onFeedSaved }: FeedCreatorProps) {
       setPreviewArticles([]);
       setPreviewRssUrl("");
       setHasPreview(false);
+      setSelectedCategoryId(null);
+      setShowNewCategory(false);
+      setNewCategoryName("");
       onFeedSaved();
     } catch {
       setError("Failed to save feed.");
@@ -208,6 +232,52 @@ export function FeedCreator({ onFeedSaved }: FeedCreatorProps) {
           )}
         </button>
       </div>
+
+      {/* Category selector */}
+      {(() => {
+        const typeCats = categories.filter((c) => c.type === sourceType);
+        if (typeCats.length === 0) return null;
+        return (
+          <div className="mb-4">
+            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">
+              Category
+            </label>
+            <select
+              value={showNewCategory ? "__new__" : (selectedCategoryId ?? "")}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === "__new__") {
+                  setShowNewCategory(true);
+                  setSelectedCategoryId(null);
+                } else if (val === "") {
+                  setShowNewCategory(false);
+                  setSelectedCategoryId(null);
+                } else {
+                  setShowNewCategory(false);
+                  setSelectedCategoryId(Number(val));
+                }
+              }}
+              className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            >
+              <option value="">None</option>
+              {typeCats.map((cat) => (
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
+              ))}
+              <option value="__new__">+ Create new...</option>
+            </select>
+            {showNewCategory && (
+              <input
+                type="text"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                placeholder="New category name..."
+                autoFocus
+                className="mt-2 w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              />
+            )}
+          </div>
+        );
+      })()}
 
       {/* Error */}
       {error && (

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { feeds } from "@/lib/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { fetchGoogleNews } from "@/lib/parsers/google-news";
 import { fetchYouTube, resolveChannelId } from "@/lib/parsers/youtube";
 import { fetchReddit } from "@/lib/parsers/reddit";
@@ -11,14 +11,22 @@ import type { FeedType, PreviewArticle } from "@/types";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { type } = body as { type: FeedType };
+    const { type, categoryId } = body as { type: FeedType; categoryId?: number };
 
     if (!type) {
       return NextResponse.json({ error: "type is required" }, { status: 400 });
     }
 
-    // Get all feeds of this type
-    const feedList = await db.select().from(feeds).where(eq(feeds.type, type));
+    // Get feeds of this type, optionally filtered by category
+    let feedList;
+    if (categoryId !== undefined) {
+      feedList = await db
+        .select()
+        .from(feeds)
+        .where(and(eq(feeds.type, type), eq(feeds.categoryId, categoryId)));
+    } else {
+      feedList = await db.select().from(feeds).where(eq(feeds.type, type));
+    }
 
     if (feedList.length === 0) {
       return NextResponse.json({ articles: [], feedCount: 0, type });

@@ -1,5 +1,15 @@
 export type FeedType = "google-news" | "youtube" | "reddit" | "rss";
 
+export interface FeedCategory {
+  id: number;
+  name: string;
+  slug: string;
+  type: FeedType;
+  isPublic: boolean;
+  shareToken: string | null;
+  createdAt: Date;
+}
+
 export interface Feed {
   id: number;
   name: string;
@@ -7,6 +17,8 @@ export interface Feed {
   query: string;
   language: string | null;
   rssUrl: string;
+  categoryId: number | null;
+  category?: FeedCategory | null;
   lastTestedAt: Date | null;
   articleCount: number | null;
   createdAt: Date;

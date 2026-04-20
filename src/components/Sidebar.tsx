@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import type { Feed, FeedType } from "@/types";
+import type { Feed, FeedType, FeedCategory } from "@/types";
 
 const SOURCE_CONFIG = {
   "google-news": {
@@ -39,12 +39,21 @@ const SOURCE_CONFIG = {
   },
 } as const;
 
+interface ActiveCategory {
+  id: number;
+  slug: string;
+  name: string;
+}
+
 interface SidebarProps {
   feeds: Feed[];
+  categories: FeedCategory[];
   activeFeedId: number | null;
   activeGroupType: FeedType | null;
+  activeCategory: ActiveCategory | null;
   onSelectFeed: (id: number) => void;
   onSelectGroup: (type: FeedType) => void;
+  onSelectCategory: (category: ActiveCategory, type: FeedType) => void;
   onNewFeed: () => void;
 }
 
@@ -53,19 +62,30 @@ const DEFAULT_WIDTH = 260;
 const MIN_WIDTH = 200;
 const MAX_WIDTH = 500;
 
-export function Sidebar({ feeds, activeFeedId, activeGroupType, onSelectFeed, onSelectGroup, onNewFeed }: SidebarProps) {
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({
+export function Sidebar({
+  feeds,
+  categories,
+  activeFeedId,
+  activeGroupType,
+  activeCategory,
+  onSelectFeed,
+  onSelectGroup,
+  onSelectCategory,
+  onNewFeed,
+}: SidebarProps) {
+  const [expandedTypes, setExpandedTypes] = useState<Record<string, boolean>>({
     "google-news": true,
     youtube: true,
     reddit: true,
     rss: true,
   });
 
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   const isDragging = useRef(false);
   const sidebarRef = useRef<HTMLElement>(null);
 
-  // Load saved width from localStorage
   useEffect(() => {
     const saved = localStorage.getItem(SIDEBAR_WIDTH_KEY);
     if (saved) {
@@ -92,7 +112,6 @@ export function Sidebar({ feeds, activeFeedId, activeGroupType, onSelectFeed, on
       document.body.style.userSelect = "";
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
-      // Save on drag end
       setWidth((w) => {
         localStorage.setItem(SIDEBAR_WIDTH_KEY, String(w));
         return w;
@@ -113,14 +132,33 @@ export function Sidebar({ feeds, activeFeedId, activeGroupType, onSelectFeed, on
     {} as Record<string, Feed[]>
   );
 
-  const toggleSection = (type: string) => {
-    setExpanded((prev) => ({ ...prev, [type]: !prev[type] }));
+  const categoriesForType = (type: string) =>
+    categories.filter((c) => c.type === type);
+
+  const feedsForCategory = (typeFeeds: Feed[], categoryId: number) =>
+    typeFeeds.filter((f) => f.categoryId === categoryId);
+
+  const uncategorizedFeeds = (typeFeeds: Feed[]) =>
+    typeFeeds.filter((f) => f.categoryId === null);
+
+  const toggleType = (type: string) => {
+    setExpandedTypes((prev) => ({ ...prev, [type]: !prev[type] }));
+  };
+
+  const toggleCategory = (catId: number) => {
+    const key = `cat-${catId}`;
+    setExpandedCategories((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
   const handleGroupClick = (type: FeedType) => {
-    // Expand the section and show overview
-    setExpanded((prev) => ({ ...prev, [type]: true }));
+    setExpandedTypes((prev) => ({ ...prev, [type]: true }));
     onSelectGroup(type);
+  };
+
+  const handleCategoryClick = (cat: FeedCategory, type: FeedType) => {
+    const key = `cat-${cat.id}`;
+    setExpandedCategories((prev) => ({ ...prev, [key]: true }));
+    onSelectCategory({ id: cat.id, slug: cat.slug, name: cat.name }, type);
   };
 
   return (
@@ -145,12 +183,14 @@ export function Sidebar({ feeds, activeFeedId, activeGroupType, onSelectFeed, on
         {(Object.keys(SOURCE_CONFIG) as Array<keyof typeof SOURCE_CONFIG>).map((type) => {
           const config = SOURCE_CONFIG[type];
           const typeFeeds = grouped[type] || [];
-          const isGroupActive = activeGroupType === type && activeFeedId === null;
+          const typeCats = categoriesForType(type);
+          const hasCategories = typeCats.length > 0;
+          const isGroupActive = activeGroupType === type && activeFeedId === null && activeCategory === null;
 
           return (
             <div key={type} className="mb-1">
+              {/* Type header */}
               <div className="flex items-center">
-                {/* Group label — click to show overview */}
                 <button
                   onClick={() => handleGroupClick(type)}
                   className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-l-lg text-sm font-medium transition-colors ${
@@ -171,13 +211,12 @@ export function Sidebar({ feeds, activeFeedId, activeGroupType, onSelectFeed, on
                     </span>
                   )}
                 </button>
-                {/* Chevron — click to expand/collapse */}
                 <button
-                  onClick={() => toggleSection(type)}
+                  onClick={() => toggleType(type)}
                   className="px-2 py-2 rounded-r-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                 >
                   <svg
-                    className={`w-3.5 h-3.5 transition-transform ${expanded[type] ? "rotate-0" : "-rotate-90"}`}
+                    className={`w-3.5 h-3.5 transition-transform ${expandedTypes[type] ? "rotate-0" : "-rotate-90"}`}
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -187,22 +226,146 @@ export function Sidebar({ feeds, activeFeedId, activeGroupType, onSelectFeed, on
                 </button>
               </div>
 
-              {expanded[type] && typeFeeds.length > 0 && (
-                <div className="ml-2 mt-0.5 space-y-0.5">
-                  {typeFeeds.map((feed) => (
-                    <button
-                      key={feed.id}
-                      onClick={() => onSelectFeed(feed.id)}
-                      className={`w-full text-left px-3 py-1.5 rounded-md text-sm truncate transition-colors ${
-                        activeFeedId === feed.id
-                          ? "bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400 font-medium"
-                          : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                      }`}
-                    >
-                      {feed.name}
-                    </button>
-                  ))}
-                </div>
+              {/* Expanded content */}
+              {expandedTypes[type] && (
+                hasCategories ? (
+                  // 3-level: type → category → feeds
+                  <div className="ml-2 mt-0.5 space-y-0.5">
+                    {typeCats.map((cat) => {
+                      const catFeeds = feedsForCategory(typeFeeds, cat.id);
+                      const catKey = `cat-${cat.id}`;
+                      const isCatExpanded = expandedCategories[catKey] ?? false;
+                      const isCatActive = activeCategory?.id === cat.id && activeFeedId === null;
+
+                      return (
+                        <div key={cat.id}>
+                          {/* Category row */}
+                          <div className="flex items-center">
+                            <button
+                              onClick={() => handleCategoryClick(cat, type)}
+                              className={`flex-1 flex items-center gap-2 px-3 py-1.5 rounded-l-md text-sm transition-colors ${
+                                isCatActive
+                                  ? "bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400 font-medium"
+                                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                              }`}
+                            >
+                              <span className="flex-1 text-left truncate">{cat.name}</span>
+                              <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                                isCatActive
+                                  ? "bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-400"
+                                  : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
+                              }`}>
+                                {catFeeds.length}
+                              </span>
+                            </button>
+                            <button
+                              onClick={() => toggleCategory(cat.id)}
+                              className="px-2 py-1.5 rounded-r-md text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            >
+                              <svg
+                                className={`w-3 h-3 transition-transform ${isCatExpanded ? "rotate-0" : "-rotate-90"}`}
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </button>
+                          </div>
+
+                          {/* Feeds within category */}
+                          {isCatExpanded && catFeeds.length > 0 && (
+                            <div className="ml-3 mt-0.5 space-y-0.5">
+                              {catFeeds.map((feed) => (
+                                <button
+                                  key={feed.id}
+                                  onClick={() => onSelectFeed(feed.id)}
+                                  className={`w-full text-left px-3 py-1.5 rounded-md text-sm truncate transition-colors ${
+                                    activeFeedId === feed.id
+                                      ? "bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400 font-medium"
+                                      : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                                  }`}
+                                >
+                                  {feed.name}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {/* Uncategorized feeds under "Other" */}
+                    {(() => {
+                      const uncat = uncategorizedFeeds(typeFeeds);
+                      if (uncat.length === 0) return null;
+                      const otherKey = `other-${type}`;
+                      const isOtherExpanded = expandedCategories[otherKey] ?? false;
+
+                      return (
+                        <div>
+                          <div className="flex items-center">
+                            <span className="flex-1 px-3 py-1.5 text-sm text-slate-400 dark:text-slate-500 italic">
+                              Other
+                              <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 not-italic">
+                                {uncat.length}
+                              </span>
+                            </span>
+                            <button
+                              onClick={() => setExpandedCategories((prev) => ({ ...prev, [otherKey]: !prev[otherKey] }))}
+                              className="px-2 py-1.5 rounded-r-md text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            >
+                              <svg
+                                className={`w-3 h-3 transition-transform ${isOtherExpanded ? "rotate-0" : "-rotate-90"}`}
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </button>
+                          </div>
+                          {isOtherExpanded && (
+                            <div className="ml-3 mt-0.5 space-y-0.5">
+                              {uncat.map((feed) => (
+                                <button
+                                  key={feed.id}
+                                  onClick={() => onSelectFeed(feed.id)}
+                                  className={`w-full text-left px-3 py-1.5 rounded-md text-sm truncate transition-colors ${
+                                    activeFeedId === feed.id
+                                      ? "bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400 font-medium"
+                                      : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                                  }`}
+                                >
+                                  {feed.name}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                ) : (
+                  // 2-level: type → feeds (no categories — same as original)
+                  typeFeeds.length > 0 && (
+                    <div className="ml-2 mt-0.5 space-y-0.5">
+                      {typeFeeds.map((feed) => (
+                        <button
+                          key={feed.id}
+                          onClick={() => onSelectFeed(feed.id)}
+                          className={`w-full text-left px-3 py-1.5 rounded-md text-sm truncate transition-colors ${
+                            activeFeedId === feed.id
+                              ? "bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400 font-medium"
+                              : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                          }`}
+                        >
+                          {feed.name}
+                        </button>
+                      ))}
+                    </div>
+                  )
+                )
               )}
             </div>
           );
